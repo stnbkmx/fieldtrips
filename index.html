@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FOR 130 field trips: iNaturalist sightings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link crossorigin="anonymous" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;1,8..60,400;1,8..60,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<script src="vendor/leaflet/leaflet.js"></script>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Field Trips">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#FBFBF7">
+<style>
+:root{
+  --paper:#FBFBF7; --panel:#F2F4EF; --ink:#1D2621; --muted:#5E6B63;
+  --rule:#DCE1DA; --moss:#35573F; --hl:#F4E27C; --warn:#8A5A00;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  font-family:'Roboto Flex',Roboto,system-ui,-apple-system,'Segoe UI',sans-serif;
+  color:var(--ink);background:var(--paper);
+  display:grid;grid-template-rows:auto 1fr;
+  padding-top:env(safe-area-inset-top,0px);
+}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--moss);outline-offset:2px}
+
+header{
+  display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 18px;
+  padding:10px 16px 0;border-bottom:1px solid var(--rule);background:var(--paper);
+}
+.titles{flex:1 1 280px;min-width:0;padding-bottom:9px}
+h1{font-size:17px;font-weight:650;margin:0;letter-spacing:-.005em}
+.sub{font-size:13px;color:var(--muted);margin-top:2px}
+.tabs{display:flex;gap:2px}
+.tabs button{
+  border:0;background:none;padding:8px 12px 9px;font-size:13.5px;cursor:pointer;color:var(--muted);
+  border-bottom:3px solid transparent;margin-bottom:-1px
+}
+.tabs button[aria-selected="true"]{color:var(--ink);font-weight:600;border-bottom-color:var(--moss)}
+.tabs button:hover{color:var(--ink)}
+#listToggle{display:none;border:1px solid var(--moss);background:#fff;color:var(--moss);border-radius:7px;padding:6px 11px;font-size:13px;cursor:pointer;margin-bottom:8px}
+
+main{display:grid;grid-template-columns:380px 1fr;min-height:0}
+aside{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--rule);background:var(--paper)}
+#map{min-height:0;height:100%;background:#e8ebe5}
+.mapwrap{position:relative;min-height:0}
+
+.filters{padding:12px 14px 10px;border-bottom:1px solid var(--rule);display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
+.filters label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:3px}
+.filters select{border:1px solid var(--rule);border-radius:6px;background:#fff;padding:5px 6px;font-size:13px;color:var(--ink)}
+.tools{display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--rule)}
+.tools input{flex:1;min-width:0;border:1px solid var(--rule);border-radius:6px;padding:6px 8px;font-size:13px;background:#fff}
+.btn{border:1px solid var(--rule);background:#fff;border-radius:6px;padding:6px 9px;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--moss)}
+
+.list{overflow:auto;flex:1;min-height:0;--n:2}
+.colhead{
+  position:sticky;top:0;z-index:2;background:var(--paper);
+  display:grid;grid-template-columns:1fr repeat(var(--n),58px);gap:8px;
+  padding:7px 14px 6px 54px;font-size:11.5px;color:var(--muted);border-bottom:1px solid var(--rule)
+}
+.colhead span{text-align:right}
+.fam{
+  display:grid;grid-template-columns:20px 1fr repeat(var(--n),58px);gap:8px;align-items:center;
+  padding:7px 14px;background:var(--panel);font-size:13px;font-weight:600;border-bottom:1px solid var(--rule)
+}
+.fam .famname{display:flex;align-items:center;gap:8px}
+.row{
+  display:grid;grid-template-columns:20px 12px 1fr repeat(var(--n),58px);gap:8px;align-items:start;
+  padding:7px 14px;border-bottom:1px solid #EEF0EC
+}
+.row.solo{background:var(--hl)}
+.row input,.fam input{margin:2px 0 0;accent-color:var(--moss);width:16px;height:16px}
+.sw{width:11px;height:11px;border-radius:50%;margin-top:4px;border:1px solid rgba(0,0,0,.25)}
+.names{min-width:0}
+.bin{
+  font-family:'Source Serif 4',Georgia,serif;font-size:15px;line-height:1.25;
+  background:none;border:0;padding:0;text-align:left;cursor:pointer;color:inherit
+}
+.bin:hover{text-decoration:underline;text-decoration-color:var(--moss)}
+.common{font-size:12.5px;color:var(--muted);line-height:1.3}
+.note{font-size:11.5px;color:var(--moss);line-height:1.3;margin-top:2px}
+.flag{font-size:11.5px;color:var(--warn);line-height:1.3;margin-top:2px}
+.tag{display:inline-block;font-family:'Roboto Flex',sans-serif;font-size:10.5px;color:var(--moss);border:1px solid var(--moss);border-radius:3px;padding:0 4px;margin-left:6px;vertical-align:2px}
+.count{text-align:right;font-size:13px;font-variant-numeric:tabular-nums;padding-top:2px}
+.count.zero{color:#B3BBB5}
+.fam .count{font-weight:600}
+
+.foot{padding:10px 14px 14px;font-size:11.5px;color:var(--muted);border-top:1px solid var(--rule);line-height:1.45}
+.foot a{color:var(--moss)}
+.linkbtn{background:none;border:0;padding:0;color:var(--moss);text-decoration:underline;cursor:pointer;font-size:11.5px}
+
+#status{
+  position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:800;
+  background:rgba(255,255,255,.95);border:1px solid var(--rule);border-radius:999px;
+  padding:6px 14px;font-size:12.5px;box-shadow:0 1px 4px rgba(0,0,0,.12);max-width:calc(100% - 120px);text-align:center
+}
+#status.err{border-color:#C0392B;color:#8E2A20}
+#status:empty{display:none}
+
+.stopbar{display:flex;flex-direction:column;background:#fff;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.2);overflow:hidden}
+.stopbar button{border:0;background:#fff;padding:6px 10px;font-size:12.5px;text-align:left;cursor:pointer;white-space:nowrap}
+.stopbar button+button{border-top:1px solid var(--rule)}
+.stopbar button:hover{background:var(--panel)}
+
+.leaflet-popup-content{margin:0;width:250px!important}
+.pop img{display:block;width:100%;height:170px;object-fit:cover;border-radius:12px 12px 0 0;background:#eee}
+.pop .pb{padding:9px 12px 11px;font-size:12.5px;line-height:1.4}
+.pop .pn{font-family:'Source Serif 4',Georgia,serif;font-size:15px}
+.pop .pc{color:var(--muted)}
+.pop .meta{margin:6px 0 7px;color:var(--ink)}
+.pop a{color:var(--moss);font-weight:600}
+.sitepin{background:var(--ink);color:#fff;font-size:12px;font-weight:600;padding:3px 7px;border-radius:5px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:grab;display:inline-block;transform:translate(-50%,-50%)}
+.legendbox{background:rgba(255,255,255,.95);padding:7px 10px;border-radius:6px;font-size:11.5px;line-height:1.5;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.legendbox span{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px;border:1.5px solid #555}
+
+.offline{padding:10px 0 8px;border-bottom:1px solid var(--rule);margin-bottom:8px}
+.offrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.btn.primary{background:var(--moss);color:#fff;border-color:var(--moss);font-weight:600}
+.btn.primary:disabled{opacity:.55;cursor:default}
+.offrow label{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--ink)}
+.offrow input{accent-color:var(--moss);width:15px;height:15px;margin:0}
+#offStatus{margin-top:6px;color:var(--ink)}
+#offStatus.warn{color:var(--warn)}
+#netpill{align-self:center;margin-bottom:8px;font-size:12px;font-weight:600;color:#fff;background:var(--warn);border-radius:999px;padding:3px 10px}
+#netpill[hidden]{display:none}
+.stopbar button[aria-pressed="true"]{background:#1a73e8;color:#fff}
+@media (max-width:760px){
+  main{grid-template-columns:1fr}
+  header{padding:8px 12px 0;gap:4px 10px}
+  .titles{padding-bottom:4px}
+  h1{font-size:15.5px}
+  .sub{font-size:12px}
+  .tabs button{padding:7px 9px 8px;font-size:13px}
+  #listToggle{display:inline-block}
+  aside{
+    position:fixed;left:0;right:0;bottom:0;height:74vh;z-index:1100;
+    border-right:0;border-top:1px solid var(--rule);border-radius:14px 14px 0 0;
+    box-shadow:0 -4px 18px rgba(0,0,0,.18);transform:translateY(102%);transition:transform .22s ease;
+    padding-bottom:env(safe-area-inset-bottom,0px)
+  }
+  aside.open{transform:none}
+  .filters{padding:10px 12px 8px}
+  .foot{padding:8px 12px 10px}
+  .foot .help{display:none}
+  #status{max-width:calc(100% - 90px)}
+}
+@media (prefers-reduced-motion:reduce){aside{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="titles">
+    <h1 id="title">Field trip</h1>
+    <div class="sub" id="subline"></div>
+  </div>
+  <div class="tabs" role="tablist" aria-label="Field trip" id="tabs"></div>
+  <span id="netpill" hidden>Offline</span>
+  <button id="listToggle" aria-controls="panel" aria-expanded="false">Species list</button>
+</header>
+
+<main>
+  <aside id="panel" aria-label="Species and filters">
+    <div class="filters">
+      <label>Search radius
+        <select id="radius">
+          <option value="1">1 km</option><option value="2">2 km</option>
+          <option value="3">3 km</option><option value="4">4 km</option><option value="5">5 km</option>
+        </select>
+      </label>
+      <label>Observation quality
+        <select id="quality">
+          <option value="research">Research grade only</option>
+          <option value="all">Research grade + Needs ID</option>
+        </select>
+      </label>
+      <label>Location precision
+        <select id="accuracy">
+          <option value="0">Any</option>
+          <option value="250">Within 250 m</option>
+          <option value="100">Within 100 m</option>
+          <option value="30">Within 30 m</option>
+        </select>
+      </label>
+      <label>Color points by
+        <select id="colorBy">
+          <option value="family">Family</option>
+          <option value="species">Species (checked only)</option>
+        </select>
+      </label>
+    </div>
+    <div class="tools">
+      <input id="search" type="search" placeholder="Filter by name or family" aria-label="Filter species list">
+      <button class="btn" id="allBtn">All</button>
+      <button class="btn" id="noneBtn">None</button>
+    </div>
+    <div class="list" id="list">
+      <div class="colhead" id="colhead"></div>
+      <div id="rows"></div>
+    </div>
+    <div class="foot">
+      <div class="offline">
+        <div class="offrow">
+          <button class="btn primary" id="saveOffline">Save this trip for offline</button>
+          <label><input type="checkbox" id="savePhotos" checked> Include photos</label>
+        </div>
+        <div id="offStatus"></div>
+      </div>
+      <div id="summary">Loading…</div>
+      <div class="help" style="margin-top:6px">Click a Latin name to show only that taxon; click again to restore. Drag a site pin to recenter its search circle. Obscured locations are always hidden.</div>
+      <div style="margin-top:6px">
+        <button class="linkbtn" id="refreshBtn">Refresh from iNaturalist</button>
+        &nbsp;&nbsp;<button class="linkbtn" id="recheckBtn">Re-check names</button>
+        &nbsp;&nbsp;<button class="linkbtn" id="resetSitesBtn">Reset site pins</button>
+        &nbsp;&nbsp;<button class="linkbtn" id="clearOffBtn">Clear offline data</button>
+      </div>
+      <div class="help" style="margin-top:6px">Data and photos from <a href="https://www.inaturalist.org" target="_blank" rel="noopener">iNaturalist</a>; they belong to their observers.</div>
+    </div>
+  </aside>
+  <div class="mapwrap">
+    <div id="map"></div>
+    <div id="status" role="status" aria-live="polite"></div>
+  </div>
+</main>
+
+<script>
+/* ---------- Trip data (from Species_Lists.xlsx) ---------- */
+const TRIPS = {
+  hmef: {
+    tab:'Horse Mtn', title:'Lab 11 field trip: Horse Mountain and East Fork', radius:3,
+    sites:[
+      {key:'hm', label:'Horse Mtn', lat:40.8743, lng:-123.7328},   // USGS GNIS summit
+      {key:'ef', label:'East Fork', lat:40.9047, lng:-123.7061}    // East Fork Campground
+    ],
+    taxa:[
+      {name:'Sambucus caerulea', family:'Adoxaceae', common:'blue elderberry',
+       queries:['Sambucus caerulea','Sambucus cerulea','Sambucus nigra caerulea','Sambucus nigra cerulea']},
+      {name:'Berberis aquifolium', family:'Berberidaceae', common:'Oregon-grape'},
+      {name:'Berberis nervosa', family:'Berberidaceae', common:'little Oregon-grape'},
+      {name:'Symphoricarpos mollis', family:'Caprifoliaceae', common:'creeping snowberry', candidate:true, note:'Prev. instructor: near the Oregon white oaks at Horse Mtn'},
+      {name:'Cornus nuttallii', family:'Cornaceae', common:'Pacific dogwood'},
+      {name:'Cornus sessilis', family:'Cornaceae', common:'blackfruit dogwood'},
+      {name:'Calocedrus decurrens', family:'Cupressaceae', common:'incense-cedar'},
+      {name:'Chamaecyparis lawsoniana', family:'Cupressaceae', common:'Port Orford-cedar'},
+      {name:'Arbutus menziesii', family:'Ericaceae', common:'Pacific madrone'},
+      {name:'Arctostaphylos nevadensis', family:'Ericaceae', common:'pinemat manzanita'},
+      {name:'Arctostaphylos patula', family:'Ericaceae', common:'greenleaf manzanita'},
+      {name:'Arctostaphylos viscida', family:'Ericaceae', common:'whiteleaf manzanita'},
+      {name:'Chimaphila umbellata', family:'Ericaceae', common:"prince's pine", candidate:true, note:'Prev. instructor: at the manzanita stop'},
+      {name:'Chrysolepis chrysophylla', family:'Fagaceae', common:'golden chinquapin'},
+      {name:'Quercus chrysolepis', family:'Fagaceae', common:'canyon live oak'},
+      {name:'Quercus garryana', family:'Fagaceae', common:'Oregon white oak'},
+      {name:'Quercus kelloggii', family:'Fagaceae', common:'California black oak'},
+      {name:'Quercus vacciniifolia', family:'Fagaceae', common:'huckleberry oak'},
+      {name:'Garrya fremontii', family:'Garryaceae', common:'Fremont silk tassel'},
+      {name:'Ribes roezlii', family:'Grossulariaceae', common:'Sierra gooseberry'},
+      {name:'Abies concolor', family:'Pinaceae', common:'white fir', alts:['Abies lowiana']},
+      {name:'Pinus attenuata', family:'Pinaceae', common:'knobcone pine'},
+      {name:'Pinus coulteri', family:'Pinaceae', common:'Coulter pine'},
+      {name:'Pinus jeffreyi', family:'Pinaceae', common:'Jeffrey pine'},
+      {name:'Pinus lambertiana', family:'Pinaceae', common:'sugar pine'},
+      {name:'Pinus monticola', family:'Pinaceae', common:'western white pine'},
+      {name:'Pinus ponderosa', family:'Pinaceae', common:'ponderosa pine'},
+      {name:'Pinus sabiniana', family:'Pinaceae', common:'ghost pine'},
+      {name:'Ceanothus cordulatus', family:'Rhamnaceae', common:'mountain whitethorn'},
+      {name:'Ceanothus cuneatus', family:'Rhamnaceae', common:'buck brush'},
+      {name:'Ceanothus prostratus', family:'Rhamnaceae', common:'Mahala mat', candidate:true, note:'Prev. instructor: near the knobcone pines on Horse Mtn'},
+      {name:'Frangula californica', family:'Rhamnaceae', common:'California coffeeberry', candidate:true, note:'Prev. instructor: down the CHLA road, near bottom, on left'},
+      {name:'Amelanchier alnifolia', family:'Rosaceae', common:'western serviceberry'},
+      {name:'Holodiscus discolor', family:'Rosaceae', common:'oceanspray'},
+      {name:'Prunus emarginata', family:'Rosaceae', common:'bitter cherry'},
+      {name:'Rubus leucodermis', family:'Rosaceae', common:'western raspberry'},
+      {name:'Taxus brevifolia', family:'Taxaceae', common:'Pacific yew', note:'Prev. instructor: near the CHLA gate, on right'}
+    ]
+  },
+  suemeg: {
+    tab:'Sue-meg', title:'Lab 10 field trip: Sue-meg State Park', radius:2,
+    sites:[ {key:'sm', label:'Sue-meg', lat:41.1358, lng:-124.1582} ],
+    taxa:[
+      {name:'Baccharis pilularis', family:'Asteraceae', common:'coyote brush', note:'Moved here from the Korbel list, per the sheet'},
+      {name:'Lonicera involucrata', family:'Caprifoliaceae', common:'twinberry'},
+      {name:'Hesperocyparis macrocarpa', family:'Cupressaceae', common:'Monterey cypress'},
+      {name:'Rhododendron occidentale', family:'Ericaceae', common:'western azalea'},
+      {name:'Garrya elliptica', family:'Garryaceae', common:'coastal silk tassel'},
+      {name:'Morella californica', family:'Myricaceae', common:'Pacific wax-myrtle'},
+      {name:'Pinus contorta ssp. contorta', family:'Pinaceae', common:'beach pine', queries:['Pinus contorta'], broad:true, note:'Matched at species level so records IDed only to Pinus contorta count; ssp. contorta is the only one here'},
+      {name:'Pinus muricata', family:'Pinaceae', common:'Bishop pine'},
+      {name:'Ceanothus thyrsiflorus', family:'Rhamnaceae', common:'blue blossom'}
+    ]
+  },
+  bauer: {
+    tab:'Camp Bauer', title:'Lab 9 field trip: Camp Bauer, Korbel', radius:2,
+    sites:[ {key:'cb', label:'Camp Bauer', lat:40.8793, lng:-123.9506} ],   // USGS GNIS locale
+    taxa:[
+      {name:'Toxicodendron diversilobum', family:'Anacardiaceae', common:'poison-oak'},
+      {name:'Corylus cornuta', family:'Betulaceae', common:'California hazel'},
+      {name:'Symphoricarpos albus', family:'Caprifoliaceae', common:'common snowberry'},
+      {name:'Notholithocarpus densiflorus', family:'Fagaceae', common:'tanoak'},
+      {name:'Umbellularia californica', family:'Lauraceae', common:'California bay'},
+      {name:'Fraxinus latifolia', family:'Oleaceae', common:'Oregon ash'},
+      {name:'Malus fusca', family:'Rosaceae', common:'Oregon crab apple'},
+      {name:'Oemleria cerasiformis', family:'Rosaceae', common:'oso berry'},
+      {name:'Rosa gymnocarpa', family:'Rosaceae', common:'wood rose'},
+      {name:'Populus trichocarpa', family:'Salicaceae', common:'black cottonwood', queries:['Populus trichocarpa','Populus balsamifera trichocarpa']},
+      {name:'Salix spp.', family:'Salicaceae', common:'willow', queries:['Salix'], genus:true, note:'Mapped at genus level; all willow species count'},
+      {name:'Acer circinatum', family:'Sapindaceae', common:'vine maple'},
+      {name:'Acer macrophyllum', family:'Sapindaceae', common:'bigleaf maple'}
+    ]
+  }
+};
+
+const FAMILY_COLORS = {
+  Adoxaceae:'#6D4C9F', Anacardiaceae:'#D0452F', Asteraceae:'#C9A227', Berberidaceae:'#E0A800',
+  Betulaceae:'#2AA198', Caprifoliaceae:'#6F8FAF', Cornaceae:'#E8743B', Cupressaceae:'#1F9E89',
+  Ericaceae:'#C0392B', Fagaceae:'#8B5E34', Garryaceae:'#8FA33B', Grossulariaceae:'#B55D9E',
+  Lauraceae:'#5B8C5A', Myricaceae:'#9B6FC4', Oleaceae:'#7F6A9E', Pinaceae:'#1E5631',
+  Rhamnaceae:'#2E6FD6', Rosaceae:'#F28CA0', Salicaceae:'#B0B842', Sapindaceae:'#DDAA00',
+  Taxaceae:'#5A1E2E'
+};
+const SPECIES_PALETTE = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b',
+  '#e377c2','#17becf','#bcbd22','#393b79','#ad494a','#637939'];
+const RANK_WORDS = new Set(['ssp.','subsp.','var.','spp.','sp.','f.']);
+
+/* ---------- Storage (all guarded) ---------- */
+const LS = {
+  get(k){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+const K_TAXA='ft-taxa-v2', K_SITES='ft-sites-v2', K_UI='ft-ui-v2', K_OBS=t=>'ft-obs-v2-'+t;
+
+/* ---------- State ---------- */
+const ui = Object.assign({trip:'hmef', quality:'research', accuracy:250, colorBy:'family', radius:{}}, LS.get(K_UI)||{});
+if(!TRIPS[ui.trip]) ui.trip = 'hmef';
+let siteOverrides = LS.get(K_SITES) || {};
+let taxaCache = LS.get(K_TAXA) || {};      // signature -> {at, ids, inatName, flag, altNames}
+let trip, TAXA, SITES, obs = [], selected = new Set(), solo = null, preSolo = null, fetchedAt = null;
+let loadSeq = 0;
+
+function radius(){ return ui.radius[ui.trip] || trip.radius; }
+function sig(t){ return t.name+'|'+(t.queries||[]).join(',')+'|'+(t.alts||[]).join(','); }
+function res(t){ return taxaCache[sig(t)]; }
+
+/* ---------- iNaturalist API (throttled to ~1 request/second) ---------- */
+const API = 'https://api.inaturalist.org/v1';
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+let lastReq = 0;
+async function api(path, params){
+  const url = API + path + '?' + new URLSearchParams(params);
+  for(let attempt=0; attempt<4; attempt++){
+    const wait = Math.max(0, lastReq + 1000 - Date.now());
+    if(wait) await sleep(wait);
+    lastReq = Date.now();
+    let r;
+    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 20000);
+    try{ r = await fetch(url, {headers:{'Accept':'application/json'}, signal:ctl.signal}); }
+    catch(e){ throw new Error('Could not reach iNaturalist. Check your connection, then press Refresh.'); }
+    finally{ clearTimeout(tm); }
+    if(r.status === 429 || r.status >= 500){ await sleep(4000*(attempt+1)); continue; }
+    if(!r.ok) throw new Error('iNaturalist returned an error ('+r.status+'). Press Refresh to try again.');
+    return r.json();
+  }
+  throw new Error('iNaturalist is rate-limiting requests. Wait a minute, then press Refresh.');
+}
+class Stale extends Error {}
+function check(seq){ if(seq !== loadSeq) throw new Stale(); }
+
+async function lookup(q){
+  const d = await api('/taxa/autocomplete', {q, per_page:10});
+  const rs = d.results || [], lq = q.toLowerCase();
+  const exact = rs.find(r => r.name.toLowerCase() === lq);
+  if(exact) return {hit:exact};
+  const syn = rs.find(r => (r.matched_term||'').toLowerCase() === lq);
+  if(syn) return {hit:syn};
+  return {hit:null, results:rs};
+}
+async function resolveTaxon(t, seq){
+  const queries = t.queries || [t.name];
+  let found = null, flag = null, fallback = null;
+  for(const q of queries){
+    const r = await lookup(q); check(seq);
+    if(r.hit){ found = r.hit; break; }
+    if(!fallback && !t.queries){
+      const genus = t.name.split(' ')[0].toLowerCase();
+      fallback = (r.results||[]).find(x => x.name.toLowerCase().startsWith(genus+' ') &&
+        ['species','subspecies','variety'].includes(x.rank));
+    }
+  }
+  if(!found && fallback){ found = fallback; flag = 'guess'; }
+  if(!found) flag = 'missing';
+  const out = {at:Date.now(), ids: found ? [found.id] : [], inatName: found ? found.name : null, flag, altNames:[]};
+  for(const alt of (t.alts||[])){
+    const r = await lookup(alt); check(seq);
+    if(r.hit && !out.ids.includes(r.hit.id)){ out.ids.push(r.hit.id); out.altNames.push(r.hit.name); }
+  }
+  return out;
+}
+async function resolveTrip(seq, force){
+  const need = TAXA.filter(t => force || !res(t) || (navigator.onLine && Date.now() - res(t).at > 30*864e5));
+  for(let i=0;i<need.length;i++){
+    setStatus('Matching names to iNaturalist taxa: '+(i+1)+' of '+need.length+' (first run only)');
+    try{ taxaCache[sig(need[i])] = await resolveTaxon(need[i], seq); }
+    catch(e){ if(e instanceof Stale || !res(need[i])) throw e; continue; }   // keep the older match when offline
+    LS.set(K_TAXA, taxaCache);
+    renderList();
+  }
+}
+
+function idIndex(){
+  const m = new Map();
+  for(const t of TAXA){ const r = res(t); if(r) r.ids.forEach(id => m.set(id, t.name)); }
+  return m;
+}
+function trimObs(o, idx){
+  if(!o.geojson || !o.taxon) return null;
+  const chain = [o.taxon.id].concat((o.taxon.ancestor_ids||[]).slice().reverse());
+  let key = null;
+  for(const id of chain){ if(idx.has(id)){ key = idx.get(id); break; } }
+  if(!key) return null;
+  const p = o.photos && o.photos[0] && o.photos[0].url;
+  return {
+    id:o.id, lat:o.geojson.coordinates[1], lng:o.geojson.coordinates[0], key,
+    n:o.taxon.name, date:o.observed_on || '', user:o.user ? o.user.login : '',
+    photo: p ? p.replace('/square.', '/small.') : null,
+    acc: (typeof o.positional_accuracy === 'number') ? o.positional_accuracy : null,
+    qg:o.quality_grade, obsc: !!o.obscured
+  };
+}
+function siteSig(){ return SITES.map(s => s.lat.toFixed(4)+','+s.lng.toFixed(4)).join(';'); }
+function taxaSig(){ return TAXA.map(t => (res(t)||{ids:[]}).ids.join('+')).join(','); }
+
+let dataNote = '';
+async function fetchObs(seq, force){
+  const key = K_OBS(ui.trip);
+  const saved = LS.get(key);
+  dataNote = '';
+  if(saved && (!navigator.onLine ||
+     (!force && saved.radius === radius() && saved.sites === siteSig() && saved.taxa === taxaSig()))){
+    obs = saved.obs;
+    if(!navigator.onLine) dataNote = 'Offline: showing data saved '+new Date(saved.at).toLocaleDateString();
+    return saved.at;
+  }
+  try{ return await fetchObsNet(seq, key); }
+  catch(e){
+    if(e instanceof Stale || !saved) throw e;
+    obs = saved.obs;
+    dataNote = 'No connection to iNaturalist; showing data saved '+new Date(saved.at).toLocaleDateString();
+    return saved.at;
+  }
+}
+async function fetchObsNet(seq, key){
+  const idx = idIndex(), ids = [...idx.keys()];
+  if(!ids.length) throw new Error('No trip taxa could be matched on iNaturalist.');
+  const byId = new Map();
+  for(const s of SITES){
+    let idAbove = 0;
+    for(let page=1; page<=25; page++){
+      setStatus('Fetching observations near '+s.label+' (page '+page+')');
+      const d = await api('/observations', {
+        taxon_id: ids.join(','), lat:s.lat, lng:s.lng, radius:radius(),
+        verifiable:'true', per_page:200, order_by:'id', order:'asc', id_above:idAbove
+      });
+      check(seq);
+      const rs = d.results || [];
+      for(const o of rs){ const t = trimObs(o, idx); if(t) byId.set(t.id, t); }
+      if(rs.length < 200) break;
+      idAbove = rs[rs.length-1].id;
+    }
+  }
+  obs = [...byId.values()];
+  const at = Date.now();
+  LS.set(key, {radius:radius(), sites:siteSig(), taxa:taxaSig(), at, obs});
+  return at;
+}
+
+/* ---------- Geometry and filtering ---------- */
+function distKm(a,b,c,d){
+  const R=6371, toR=Math.PI/180, dLat=(c-a)*toR, dLng=(d-b)*toR;
+  const x=Math.sin(dLat/2)**2 + Math.cos(a*toR)*Math.cos(c*toR)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));
+}
+function inSite(o, s){ return distKm(o.lat,o.lng,s.lat,s.lng) <= radius(); }
+function passes(o){
+  if(o.obsc) return false;
+  if(ui.quality === 'research' && o.qg !== 'research') return false;
+  if(ui.accuracy > 0 && o.acc !== null && o.acc > ui.accuracy) return false;
+  return SITES.some(s => inSite(o, s));
+}
+
+/* ---------- Names and colors ---------- */
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtName(n){ return n.split(' ').map(w => RANK_WORDS.has(w) ? esc(w) : '<i>'+esc(w)+'</i>').join(' '); }
+function norm(n){ return n.toLowerCase().split(' ').filter(w => !RANK_WORDS.has(w)).join(' '); }
+function colorMap(){
+  const m = {};
+  if(ui.colorBy === 'family'){ TAXA.forEach(t => m[t.name] = FAMILY_COLORS[t.family] || '#666'); }
+  else { let i = 0; TAXA.forEach(t => { m[t.name] = selected.has(t.name) ? SPECIES_PALETTE[i++ % SPECIES_PALETTE.length] : '#C9CFCA'; }); }
+  return m;
+}
+
+/* ---------- Map ---------- */
+const map = L.map('map', {preferCanvas:true, zoomControl:true}).setView([40.95,-123.9], 10);
+const topo = L.tileLayer('https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}', {
+  maxZoom:18, maxNativeZoom:16, attribution:'USGS The National Map'});
+const imagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  maxZoom:19, attribution:'Esri, Maxar, Earthstar Geographics'});
+const otm = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+  maxZoom:18, maxNativeZoom:16, attribution:'OpenTopoMap (CC-BY-SA), OpenStreetMap contributors'});
+topo.addTo(map);
+L.control.layers({'USGS topo':topo, 'Satellite':imagery, 'OpenTopoMap':otm}, null, {position:'topright'}).addTo(map);
+L.control.scale({imperial:true, metric:true}).addTo(map);
+const legend = L.control({position:'bottomright'});
+legend.onAdd = () => { const d = L.DomUtil.create('div','legendbox');
+  d.innerHTML = '<div><span style="background:rgba(85,85,85,.6);border-color:#fff;box-shadow:0 0 0 1px #bbb"></span>Research grade</div><div><span style="background:rgba(85,85,85,.15)"></span>Needs ID</div>'; return d; };
+legend.addTo(map);
+
+const stopbar = L.control({position:'topleft'});
+stopbar.onAdd = () => { const d = L.DomUtil.create('div','stopbar'); d.id = 'stopbar';
+  L.DomEvent.disableClickPropagation(d); return d; };
+stopbar.addTo(map);
+
+const pointLayer = L.layerGroup().addTo(map);
+const siteLayer = L.layerGroup().addTo(map);
+
+function drawSites(){
+  siteLayer.clearLayers();
+  SITES.forEach(s => {
+    L.circle([s.lat,s.lng], {radius:radius()*1000, color:'#1D2621', weight:1.5, dashArray:'6 6', fill:false, interactive:false}).addTo(siteLayer);
+    const pin = L.marker([s.lat,s.lng], {draggable:true, keyboard:true, title:'Drag to recenter '+s.label,
+      icon:L.divIcon({className:'', html:'<div class="sitepin">'+esc(s.label)+'</div>', iconSize:[0,0], iconAnchor:[0,0]})}).addTo(siteLayer);
+    pin.on('dragend', e => {
+      const ll = e.target.getLatLng();
+      s.lat = +ll.lat.toFixed(5); s.lng = +ll.lng.toFixed(5);
+      siteOverrides[ui.trip] = siteOverrides[ui.trip] || {};
+      siteOverrides[ui.trip][s.key] = {lat:s.lat, lng:s.lng};
+      LS.set(K_SITES, siteOverrides);
+      drawSites(); loadObs(false);
+    });
+  });
+  const bar = document.getElementById('stopbar');
+  const btns = SITES.length > 1 ? [['all','All stops']].concat(SITES.map(s => [s.key, s.label])) : [['all','Recenter on '+SITES[0].label]];
+  bar.innerHTML = btns.map(([k,l]) => '<button data-zoom="'+k+'">'+esc(l)+'</button>').join('');
+}
+function zoomTo(which){
+  const list = which === 'all' ? SITES : SITES.filter(s => s.key === which);
+  let b = null;
+  list.forEach(s => { const sb = L.latLng(s.lat, s.lng).toBounds(radius()*2000); b = b ? b.extend(sb) : sb; });
+  if(b) map.fitBounds(b, {padding:[20,20]});
+}
+document.getElementById('stopbar').addEventListener('click', e => {
+  const b = e.target.closest('[data-zoom]'); if(b) zoomTo(b.dataset.zoom);
+});
+
+function popupHtml(o){
+  const t = TAXA.find(x => x.name === o.key);
+  const shown = norm(o.n) !== norm(o.key) ? '<div class="pc">Observed as '+fmtName(o.n)+'</div>' : '';
+  const acc = o.acc !== null ? 'Location within '+Math.round(o.acc)+' m' : 'Location precision not recorded';
+  return '<div class="pop">'+(o.photo ? '<img src="'+esc(o.photo)+'" alt="Observation photo of '+esc(o.key)+'" loading="lazy">' : '')+
+    '<div class="pb"><div class="pn">'+fmtName(o.key)+'</div><div class="pc">'+esc(t.common)+', '+esc(t.family)+'</div>'+shown+
+    '<div class="meta">'+(o.date ? esc(o.date) : 'Date unknown')+(o.user ? ', by '+esc(o.user) : '')+'<br>'+acc+'<br>'+
+    (o.qg==='research' ? 'Research grade' : 'Needs ID')+'</div>'+
+    '<a href="https://www.inaturalist.org/observations/'+o.id+'" target="_blank" rel="noopener">Open on iNaturalist</a></div></div>';
+}
+function renderPoints(){
+  pointLayer.clearLayers();
+  const cm = colorMap(); let shown = 0;
+  for(const o of obs){
+    if(!selected.has(o.key) || !passes(o)) continue;
+    const rg = o.qg === 'research';
+    L.circleMarker([o.lat,o.lng], {
+      radius:4.55, color:rg ? '#ffffff' : cm[o.key], weight:rg ? 0.8 : 1.3, opacity:rg ? 0.7 : 0.8,
+      fillColor:cm[o.key], fillOpacity:rg ? 0.6 : 0.15
+    }).bindPopup(() => popupHtml(o), {maxWidth:260, minWidth:250}).addTo(pointLayer);
+    shown++;
+  }
+  return shown;
+}
+
+/* ---------- Species list ---------- */
+function counts(){
+  const c = {};
+  TAXA.forEach(t => c[t.name] = SITES.map(() => 0));
+  for(const o of obs){
+    if(!passes(o)) continue;
+    SITES.forEach((s,i) => { if(inSite(o,s)) c[o.key][i]++; });
+  }
+  return c;
+}
+function flagText(t){
+  const r = res(t);
+  if(!r || t.genus || t.broad) return '';
+  const alt = r.altNames && r.altNames.length ? ' Also includes '+r.altNames.map(fmtName).join(', ')+'.' : '';
+  if(r.flag === 'missing') return '<div class="flag">No matching taxon found on iNaturalist</div>';
+  if(r.flag === 'guess') return '<div class="flag">Closest iNat match: '+fmtName(r.inatName)+'; check it</div>';
+  if(r.inatName && norm(r.inatName) !== norm(t.name)) return '<div class="flag">iNat name: '+fmtName(r.inatName)+'.'+alt+'</div>';
+  return alt ? '<div class="flag">'+alt.trim()+'</div>' : '';
+}
+function cells(arr){ return arr.map(n => '<div class="count'+(n?'':' zero')+'">'+n+'</div>').join(''); }
+function renderList(){
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const c = counts(), cm = colorMap();
+  const fams = [...new Set(TAXA.map(t=>t.family))].sort();
+  let html = '';
+  for(const f of fams){
+    const members = TAXA.filter(t => t.family === f &&
+      (!q || t.name.toLowerCase().includes(q) || t.common.toLowerCase().includes(q) || f.toLowerCase().includes(q)));
+    if(!members.length) continue;
+    const nSel = members.filter(t => selected.has(t.name)).length;
+    const tot = SITES.map((_,i) => members.reduce((a,t) => a + c[t.name][i], 0));
+    html += '<div class="fam"><input type="checkbox" data-fam="'+esc(f)+'" aria-label="Toggle all '+esc(f)+'" '+(nSel===members.length?'checked':'')+(nSel>0&&nSel<members.length?' data-ind="1"':'')+'>'+
+      '<div class="famname"><span class="sw" style="background:'+(FAMILY_COLORS[f]||'#666')+';margin-top:0"></span>'+esc(f)+'</div>'+cells(tot)+'</div>';
+    for(const t of members){
+      html += '<div class="row'+(solo===t.name?' solo':'')+'">'+
+        '<input type="checkbox" data-name="'+esc(t.name)+'" aria-label="Show '+esc(t.name)+'" '+(selected.has(t.name)?'checked':'')+'>'+
+        '<span class="sw" style="background:'+cm[t.name]+'"></span>'+
+        '<div class="names"><button class="bin" data-solo="'+esc(t.name)+'" title="Show only this taxon">'+fmtName(t.name)+'</button>'+
+        (t.candidate ? '<span class="tag">candidate</span>' : '')+
+        '<div class="common">'+esc(t.common)+'</div>'+flagText(t)+(t.note ? '<div class="note">'+esc(t.note)+'</div>' : '')+'</div>'+
+        cells(c[t.name])+'</div>';
+    }
+  }
+  const rows = document.getElementById('rows');
+  rows.innerHTML = html || '<div class="row" style="grid-template-columns:1fr"><div class="common">No taxa match that filter.</div></div>';
+  rows.querySelectorAll('[data-ind]').forEach(el => el.indeterminate = true);
+}
+function render(){
+  const shown = renderPoints();
+  renderList();
+  const hidden = obs.filter(o=>o.obsc).length;
+  const none = TAXA.filter(t => !obs.some(o => o.key===t.name && passes(o))).length;
+  const where = SITES.length > 1 ? ' of any stop' : '';
+  document.getElementById('summary').innerHTML =
+    'Showing <b>'+shown+'</b> observations. '+none+' of '+TAXA.length+' taxa have none within '+radius()+' km'+where+' under these filters.'+
+    (hidden ? ' '+hidden+' obscured records hidden.' : '')+
+    (fetchedAt ? '<br>Data fetched '+new Date(fetchedAt).toLocaleString()+'.' : '');
+  document.getElementById('subline').textContent = 'iNaturalist observations of trip taxa within '+radius()+' km of '+(SITES.length > 1 ? 'each stop' : 'the site');
+}
+function setStatus(msg, err){
+  const el = document.getElementById('status');
+  el.textContent = msg || ''; el.classList.toggle('err', !!err);
+}
+
+/* ---------- Trip switching and loading ---------- */
+function setupTrip(key){
+  ui.trip = key; LS.set(K_UI, ui);
+  trip = TRIPS[key]; TAXA = trip.taxa;
+  SITES = trip.sites.map(s => Object.assign({}, s, (siteOverrides[key]||{})[s.key] || {}));
+  obs = []; fetchedAt = null; solo = null; preSolo = null;
+  selected = new Set(TAXA.map(t => t.name));
+  document.getElementById('title').textContent = trip.title;
+  document.title = trip.title+': iNaturalist sightings';
+  document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.trip === key)));
+  document.getElementById('list').style.setProperty('--n', SITES.length);
+  document.getElementById('colhead').innerHTML = '<div>Taxon</div>'+SITES.map(s => '<span>'+esc(s.label)+'</span>').join('');
+  document.getElementById('radius').value = String(radius());
+  document.getElementById('search').value = '';
+  drawSites(); zoomTo('all'); render();
+  if(typeof renderOffline === 'function'){ renderOffline(); applyOfflineBase(); }
+}
+async function loadObs(force){
+  const seq = ++loadSeq;
+  try{
+    fetchedAt = await fetchObs(seq, force);
+    setStatus(dataNote); render(); renderOffline();
+  }catch(e){ if(!(e instanceof Stale)){ setStatus(e.message, true); render(); } }
+}
+async function loadTrip(forceNames){
+  const seq = ++loadSeq;
+  if(!navigator.onLine && !LS.get(K_OBS(ui.trip))){
+    setStatus('No connection, and this trip has no saved data yet', true); render(); return;
+  }
+  try{
+    await resolveTrip(seq, forceNames);
+    check(seq);
+    fetchedAt = await fetchObs(seq, false);
+    setStatus(dataNote); render(); renderOffline();
+  }catch(e){ if(!(e instanceof Stale)){ setStatus(e.message, true); render(); } }
+}
+
+/* ---------- Events ---------- */
+document.getElementById('tabs').innerHTML = Object.entries(TRIPS).map(([k,t]) =>
+  '<button role="tab" data-trip="'+k+'" aria-selected="false">'+esc(t.tab)+'</button>').join('');
+document.getElementById('tabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-trip]');
+  if(!b || b.dataset.trip === ui.trip) return;
+  setStatus(''); setupTrip(b.dataset.trip); loadTrip(false);
+});
+function saveUI(){ LS.set(K_UI, ui); }
+document.getElementById('radius').addEventListener('change', e => {
+  ui.radius[ui.trip] = +e.target.value; saveUI(); drawSites(); zoomTo('all'); loadObs(false);
+});
+document.getElementById('quality').addEventListener('change', e => { ui.quality = e.target.value; saveUI(); render(); });
+document.getElementById('accuracy').addEventListener('change', e => { ui.accuracy = +e.target.value; saveUI(); render(); });
+document.getElementById('colorBy').addEventListener('change', e => { ui.colorBy = e.target.value; saveUI(); render(); });
+document.getElementById('search').addEventListener('input', renderList);
+document.getElementById('allBtn').addEventListener('click', () => { solo=null; selected = new Set(TAXA.map(t=>t.name)); render(); });
+document.getElementById('noneBtn').addEventListener('click', () => { solo=null; selected = new Set(); render(); });
+document.getElementById('refreshBtn').addEventListener('click', () => loadObs(true));
+document.getElementById('recheckBtn').addEventListener('click', () => { LS.del(K_OBS(ui.trip)); loadTrip(true); });
+document.getElementById('resetSitesBtn').addEventListener('click', () => {
+  delete siteOverrides[ui.trip]; LS.set(K_SITES, siteOverrides);
+  SITES = trip.sites.map(s => Object.assign({}, s)); drawSites(); zoomTo('all'); loadObs(false);
+});
+document.getElementById('rows').addEventListener('change', e => {
+  const el = e.target;
+  if(el.dataset.name){ el.checked ? selected.add(el.dataset.name) : selected.delete(el.dataset.name); solo = null; }
+  if(el.dataset.fam){ TAXA.filter(t => t.family === el.dataset.fam).forEach(t => el.checked ? selected.add(t.name) : selected.delete(t.name)); solo = null; }
+  render();
+});
+document.getElementById('rows').addEventListener('click', e => {
+  const b = e.target.closest('[data-solo]'); if(!b) return;
+  const name = b.dataset.solo;
+  if(solo === name){ selected = preSolo || new Set(TAXA.map(t=>t.name)); solo = null; }
+  else {
+    if(!solo) preSolo = new Set(selected);
+    selected = new Set([name]); solo = name;
+    const pts = obs.filter(o => o.key===name && passes(o)).map(o => [o.lat,o.lng]);
+    if(pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.3), {maxZoom:15});
+  }
+  render();
+});
+const panel = document.getElementById('panel'), toggle = document.getElementById('listToggle');
+toggle.addEventListener('click', () => {
+  const open = panel.classList.toggle('open');
+  toggle.setAttribute('aria-expanded', String(open));
+  toggle.textContent = open ? 'Show map' : 'Species list';
+});
+window.addEventListener('resize', () => map.invalidateSize());
+
+/* ---------- My location (GPS works without cell service) ---------- */
+map.createPane('me'); map.getPane('me').style.zIndex = 650;
+let watchId = null, meDot = null, meAcc = null, firstFix = true;
+const locBar = L.control({position:'topleft'});
+locBar.onAdd = () => { const d = L.DomUtil.create('div','stopbar');
+  d.innerHTML = '<button id="locBtn" aria-pressed="false">My location</button>';
+  L.DomEvent.disableClickPropagation(d); return d; };
+locBar.addTo(map);
+function stopLocate(){
+  if(watchId !== null) navigator.geolocation.clearWatch(watchId);
+  watchId = null;
+  if(meDot){ map.removeLayer(meDot); map.removeLayer(meAcc); meDot = meAcc = null; }
+  document.getElementById('locBtn').setAttribute('aria-pressed','false');
+}
+document.getElementById('locBtn').addEventListener('click', () => {
+  if(watchId !== null){ stopLocate(); return; }
+  if(!navigator.geolocation){ setStatus('Location is not available in this browser', true); return; }
+  firstFix = true;
+  document.getElementById('locBtn').setAttribute('aria-pressed','true');
+  watchId = navigator.geolocation.watchPosition(p => {
+    const ll = [p.coords.latitude, p.coords.longitude];
+    if(!meDot){
+      meAcc = L.circle(ll, {pane:'me', radius:p.coords.accuracy, color:'#1a73e8', weight:1, fillOpacity:.1, interactive:false}).addTo(map);
+      meDot = L.circleMarker(ll, {pane:'me', radius:7, color:'#fff', weight:2.5, fillColor:'#1a73e8', fillOpacity:1, interactive:false}).addTo(map);
+    } else { meDot.setLatLng(ll); meAcc.setLatLng(ll).setRadius(p.coords.accuracy); }
+    if(firstFix){ map.setView(ll, Math.max(map.getZoom(), 15)); firstFix = false; }
+  }, err => { setStatus('Location: '+err.message, true); stopLocate(); },
+  {enableHighAccuracy:true, maximumAge:10000, timeout:30000});
+});
+
+/* ---------- Offline saving ---------- */
+const TILE_URL = 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}';
+const FONT_CSS = document.querySelector('link[href*="fonts.googleapis.com/css2"]').href;
+const K_OFF = t => 'ft-offline-v1-'+t;
+const canOffline = ('serviceWorker' in navigator) && ('caches' in window) &&
+                   (location.protocol === 'https:' || location.hostname === 'localhost');
+const SOURCES = {
+  usgs:{name:'USGS topo', url:TILE_URL, layer:topo, subs:''},
+  otm:{name:'OpenTopoMap', url:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', layer:otm, subs:'abc'}
+};
+let saving = false;
+
+function tileXY(lat, lng, z){
+  const n = 2**z, r = lat*Math.PI/180;
+  return [Math.floor((lng+180)/360*n), Math.floor((1 - Math.log(Math.tan(r) + 1/Math.cos(r))/Math.PI)/2*n)];
+}
+function tileUrl(src, z, x, y){
+  const sub = src.subs ? src.subs[Math.abs(x+y) % src.subs.length] : '';
+  return L.Util.template(src.url, {s:sub, z, x, y});
+}
+function tilesFor(src, bounds, z0, z1, out){
+  for(let z=z0; z<=z1; z++){
+    const [x0,y0] = tileXY(bounds.getNorth(), bounds.getWest(), z);
+    const [x1,y1] = tileXY(bounds.getSouth(), bounds.getEast(), z);
+    for(let x=x0; x<=x1; x++) for(let y=y0; y<=y1; y++) out.add(tileUrl(src, z, x, y));
+  }
+}
+function tripTiles(src){
+  const out = new Set();
+  let all = null;
+  SITES.forEach(s => {
+    const b = L.latLng(s.lat, s.lng).toBounds((radius()+0.5)*2000);
+    tilesFor(src, b, 15, 16, out);            // full detail inside each circle
+    all = all ? all.extend(b) : b;
+  });
+  tilesFor(src, all.pad(0.6), 12, 14, out);   // whole-trip views with some margin
+  tilesFor(src, all.pad(1.5), 9, 11, out);    // wider context
+  return [...out];
+}
+function tripPhotos(){ return [...new Set(obs.filter(o => !o.obsc && o.photo).map(o => o.photo))]; }
+
+// Can this server's images be stored compactly? (Needs the server to allow cross-origin reads.)
+async function probe(url){
+  try{ const r = await fetch(url, {mode:'cors'}); return r.ok; }catch(e){ return false; }
+}
+async function grab(url, cache, mode){
+  if(await cache.match(url, {ignoreVary:true})) return 'have';
+  const r = await fetch(url, {mode: mode === 'opaque' ? 'no-cors' : 'cors'});
+  if(mode !== 'opaque' && !r.ok) return 'fail';
+  await cache.put(url, r);
+  return mode;
+}
+async function runPool(urls, cacheName, label, onTick, mode){
+  const cache = await caches.open(cacheName);
+  let i = 0, done = 0, saved = 0, quota = false;
+  async function worker(){
+    while(i < urls.length && !quota){
+      const url = urls[i++];
+      try{ if(await grab(url, cache, mode) !== 'fail') saved++; }
+      catch(e){ if(e && e.name === 'QuotaExceededError') quota = true; }
+      done++; onTick(label, done, urls.length);
+    }
+  }
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  return {total:urls.length, failed:urls.length - saved, quota};
+}
+async function purgeOpaque(name){
+  const c = await caches.open(name);
+  for(const req of await c.keys()){ const r = await c.match(req); if(r && r.type === 'opaque') await c.delete(req); }
+}
+function mb(bytes){ return (bytes/1048576).toFixed(0)+' MB'; }
+function applyOfflineBase(){
+  if(navigator.onLine) return;
+  const m = LS.get(K_OFF(ui.trip));
+  if(m && m.source === 'otm' && !map.hasLayer(otm)){ [topo, imagery].forEach(l => map.removeLayer(l)); otm.addTo(map); }
+}
+function renderOffline(){
+  const el = document.getElementById('offStatus'), btn = document.getElementById('saveOffline');
+  if(!canOffline){
+    btn.disabled = true;
+    el.textContent = 'Offline saving works once the app is hosted online and opened from its web address.';
+    return;
+  }
+  if(saving) return;
+  btn.disabled = false;
+  const m = LS.get(K_OFF(ui.trip));
+  el.classList.toggle('warn', !!(m && m.warn));
+  if(!m){ el.textContent = 'Not saved for offline yet. Save on Wi-Fi before the trip.'; return; }
+  el.textContent = 'Saved '+new Date(m.at).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})+
+    ': '+(m.tiles.total - m.tiles.failed)+' of '+m.tiles.total+' '+SOURCES[m.source].name+' map tiles'+
+    (m.photos ? ', '+(m.photos.total - m.photos.failed)+' of '+m.photos.total+' photos' : ', no photos')+
+    (m.usage ? '. App storage in use: about '+mb(m.usage)+'.' : '.')+(m.warn ? ' '+m.warn : '');
+}
+async function saveOffline(){
+  if(saving || !canOffline) return;
+  if(!navigator.onLine){ setStatus('Connect to Wi-Fi to save this trip', true); return; }
+  saving = true;
+  const btn = document.getElementById('saveOffline'), el = document.getElementById('offStatus');
+  btn.disabled = true; el.classList.remove('warn');
+  const tick = (label, d, n) => { el.textContent = 'Saving '+label+': '+d+' of '+n; };
+  const notes = [];
+  try{
+    if(navigator.storage && navigator.storage.persist) await navigator.storage.persist().catch(() => false);
+    await navigator.serviceWorker.ready;
+    el.textContent = 'Checking for new observations…';
+    await loadObs(false);
+    // Fonts (optional; system fonts are the fallback)
+    try{
+      const fc = await caches.open('ft-fonts-v1');
+      const css = await (await fetch(FONT_CSS, {mode:'cors'})).text();
+      await fc.put(FONT_CSS, new Response(css, {headers:{'Content-Type':'text/css'}}));
+      for(const m of css.matchAll(/url\((https:[^)]+)\)/g)){
+        if(!(await fc.match(m[1]))){ const r = await fetch(m[1], {mode:'cors'}); if(r.ok) await fc.put(m[1], r); }
+      }
+    }catch(e){}
+    // Map tiles: USGS if it allows offline copies, else OpenTopoMap, else a bulky last-resort copy of USGS
+    el.textContent = 'Checking map servers…';
+    const s0 = SITES[0], [px,py] = tileXY(s0.lat, s0.lng, 14);
+    let source = 'usgs', mode = 'cors';
+    if(!(await probe(tileUrl(SOURCES.usgs, 14, px, py)))){
+      if(await probe(tileUrl(SOURCES.otm, 14, px, py))){ source = 'otm'; notes.push('USGS doesn\'t allow offline copies, so the offline map is OpenTopoMap; it switches automatically when you lose signal.'); }
+      else mode = 'opaque';
+    }
+    const tiles = await runPool(tripTiles(SOURCES[source]), 'ft-tiles-v1', 'map tiles', tick, mode);
+    if(tiles.quota && mode === 'opaque'){
+      await purgeOpaque('ft-tiles-v1');
+      notes.push('Neither map server allows compact offline copies and the phone ran out of room, so the background map won\'t work offline. Use the Avenza backup for the map; the species list and points still work.');
+    } else if(tiles.quota) notes.push('Phone storage limit reached while saving the map.');
+    else if(tiles.failed > tiles.total*0.05) notes.push('Some map tiles failed; press Save again to retry the missing ones.');
+    // Photos (only if they can be stored compactly)
+    let photos = null;
+    if(document.getElementById('savePhotos').checked && !(tiles.quota && mode !== 'opaque')){
+      const urls = tripPhotos();
+      const hosts = [...new Set(urls.map(u => new URL(u).hostname))];
+      const okHosts = new Set();
+      for(const h of hosts){ const first = urls.find(u => new URL(u).hostname === h); if(await probe(first)) okHosts.add(h); }
+      const usable = urls.filter(u => okHosts.has(new URL(u).hostname));
+      photos = await runPool(usable, 'ft-photos-v1', 'photos', tick, 'cors');
+      photos.failed += urls.length - usable.length; photos.total = urls.length;
+      if(usable.length < urls.length) notes.push('Some photo servers don\'t allow offline copies, so those photos need signal.');
+      if(photos.quota) notes.push('Phone storage limit reached while saving photos.');
+    }
+    let usage = null;
+    if(navigator.storage && navigator.storage.estimate){ const est = await navigator.storage.estimate(); usage = est.usage; }
+    LS.set(K_OFF(ui.trip), {at:Date.now(), source, tiles, photos, usage, warn:notes.join(' ')});
+  }catch(e){
+    el.textContent = 'Saving stopped: '+e.message; el.classList.add('warn');
+    saving = false; btn.disabled = false; return;
+  }
+  saving = false; renderOffline();
+}
+async function clearOffline(){
+  for(const k of ['ft-tiles-v1','ft-photos-v1']) await caches.delete(k);
+  Object.keys(TRIPS).forEach(t => LS.del(K_OFF(t)));
+  renderOffline();
+}
+document.getElementById('saveOffline').addEventListener('click', saveOffline);
+document.getElementById('clearOffBtn').addEventListener('click', () => {
+  if(confirm('Remove saved map tiles and photos for all trips? Observation data stays.')) clearOffline();
+});
+
+function netState(){ document.getElementById('netpill').hidden = navigator.onLine; applyOfflineBase(); }
+window.addEventListener('online', netState);
+window.addEventListener('offline', netState);
+netState();
+if(canOffline) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+/* ---------- Go ---------- */
+document.getElementById('quality').value = ui.quality;
+document.getElementById('accuracy').value = String(ui.accuracy);
+document.getElementById('colorBy').value = ui.colorBy;
+setupTrip(ui.trip);
+loadTrip(false);
+</script>
+</body>
+</html>
